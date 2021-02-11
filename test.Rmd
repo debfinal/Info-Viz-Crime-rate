@@ -1,0 +1,136 @@
+```{r echo=FALSE}
+library(dplyr)
+library(tidyr)
+library(magrittr)
+library(knitr)
+library(ggplot2)
+library(stats)
+library(vcd)
+library(vcdExtra)
+library(ggpubr)
+library(RColorBrewer)
+library(broom)
+library(plotly)
+library(caTools)
+library(caret)
+library(class)
+library(corrplot)
+library(statsr)
+```
+```{r}
+crimes <- data.frame(state = tolower(rownames(USArrests)), USArrests)
+crimesm <- reshape2::melt(crimes, id = 1)
+
+a<-if (require(maps)) {
+  states_map <- map_data("state")
+  ggplot(crimes, aes(map_id = state)) +
+    geom_map(aes(fill = Murder), map = states_map) +
+    scale_fill_gradientn(colours=c("blue","green","yellow","red"))+
+    expand_limits(x = states_map$long, y = states_map$lat)
+
+ last_plot() + coord_map()
+  ggplot(crimesm, aes(map_id = state)) +
+    geom_map(aes(fill = value), map = states_map) +
+    scale_fill_gradientn(colours=c("blue","green","yellow","red"))+
+    expand_limits(x = states_map$long, y = states_map$lat) +
+    facet_wrap( ~ variable)
+}
+
+a <- a + labs(title="Violent Crime Rates by US State",
+                                subtitle="Arrests per 100,000 residents for assault, murder, and rape in each of the 50 US states",
+                                caption="USArrests",
+                                x= "long",
+                                y= "lat")
+a
+
+```
+State Plane and Universal
+Transverse MercatorAs noted previously, appropriate map projections have been adopted for each State,yielding “Earth” projections with coordinates based on latitude and longitude,the universal reference system. But these“latitude/longitude” references, as they will be referredto, are quite cumbersome,given that they are in degrees, minutes,and seconds.10 Two principal alternative coordinate systems are found in addition to latitude/longitude: the State Plane Coordinate System and the Universal Transverse Mercator (UTM).The State Plane Coordinate System was devised for greater user convenience, with a rectangular grid superimposed over the latitude/longitude graticule, producing State plane coordinates expressed in meters, yards, or feet. In effect, this system assumes that the individual States
+are flat so they can be described by plane geometry rather than the spherical grid. For local applications, this use of plane geometry is acceptable because error due to failure to take Earth curvature into account is not significant over relatively small areas such as police jurisdictions. Large States are divided into zones with separate grids for each to avoid the distortion problem. Texas, for example, is divided into the North, North-Central, Central, South-Central, and South zones; Louisiana into North, South, and Coastal. Typically, the origin, or zero point, for a State plane system is placed in the southwest corner, to avoid the inconvenient possibility of having to express coordinates in negative numbers. The origin is also placed outside the study area for the same reason.
+
+The following graph displays the percentage of a state’s population that is classified as “Urban Population”. This can be used as a reference when comparing Urban Population percentages between states. We will consider how the arrest rates of a state are related to the Urban Population percentage of each state.
+
+Essentially what’s happening here is that the map data (here called states) includes the latitute and longitude coordinates for the boundaries of each state. Specifying geom = "polygon" in the qplot function results in the states being traced out based on the lat/long coordinates. Urban Population of a state is related to the rate of arrests for Assault, Rape, Murder, and the Total Arrest Rates among states.
+
+The colour is mapped red as high then yellow, then green and then blue.that light blue indicates areas with high murder rates while dark blue indicates areas with low murder rates
+
+
+Summary of USArrests
+The USArrests dataset is from 1975, showing arrests per 100,000 residents for assault, murder, and rape in each of the fifty states. Additionally, the percentage of the population living in urban areas is given.
+
+One question is to whether the percentage of urban population in a state is related to the arrest rates of that state. Eventually, we will look at the correlations between population and arrest rates, in addition to focusing on the states with the highest arrest ragtes per category.
+```{r}
+summary(USArrests)
+```
+Highest Arrest Rates
+The 3rd Quartiles for each variable are diplayed in the previous summary. The values above the third quartile make up the top 25% of the data. The following states have arrest rates above the 3rd quartiles in:
+
+All Three Categories
+```{r}
+USArrests$States <- row.names(USArrests)
+USArrests$total <- (USArrests$Murder + USArrests$Assault + USArrests$Rape)
+USArrests <- USArrests[, c(5,1,2,3,4,6)]
+arrange(filter(USArrests, USArrests$Murder >= 11.25 & USArrests$Assault >= 249 & USArrests$Rape >= 26.18), desc(total))
+```
+Observations
+If a state had one type of arrest rate above the 3rd Quartile, then it was likely to have multiple types of arrest rate above the 3rd Quartile. Only 5 states had all three categories (Murder, Assault, and Rape) in the top 25 percentile.
+
+Urban Population Percentage
+The following graph displays the percentage of a state’s population that is classified as “Urban Population”. This can be used as a reference when comparing Urban Population percentages between states. As we go forward, we will consider how the arrest rates of a state are related to the Urban Population percentage of each state.
+
+```{r}
+library(ggplot2)
+library(maps)
+library(mapdata)
+usa <- map_data("usa")
+states = map_data("state")
+arrestrate = USArrests
+names(arrestrate) = tolower(names(arrestrate))
+arrestrate$region = tolower(rownames(USArrests))
+arrestrate_map = merge(states, arrestrate, sort = FALSE, by = "region")
+arrestrate_map = arrestrate_map[order(arrestrate_map$order), ]
+ggplot(arrestrate_map, aes(x=long,y=lat,group=group))+
+  geom_polygon(aes(fill=urbanpop))+
+  geom_path()+ 
+  scale_fill_gradientn(colours=rainbow(2),na.value="red90")+
+  coord_map()
+```
+
+Considering Correlations
+The following scatterplots show how the Urban Population of a state is related to the rate of arrests for Assault, Rape, Murder, and the Total Arrest Rates among states.
+
+```{r}
+par(mfrow = c(2,2))
+plot(USArrests$UrbanPop, USArrests$Assault, xlab = 'Urban Population \n', ylab = "Assault Rate", sub = 'Correlation Coefficient = 0.2588717', main = "Assault vs. Urban Population")
+fitline<- lm(Assault ~ UrbanPop, data = USArrests)
+abline(fitline)
+plot(USArrests$UrbanPop, USArrests$Rape, xlab = 'Urban Population \n', ylab = 'Rape', sub = 'Correlation Coefficient = 0.4113412', main = "Rape vs. Urban Population")
+fitline<- lm(Rape ~ UrbanPop, data = USArrests)
+abline(fitline)
+plot(USArrests$UrbanPop, USArrests$Murder, xlab = 'Urban Population \n', ylab = 'Murder' , sub = 'Correlation Coefficient = 0.0695726',main = "Murder vs. Urban Population")
+fitline<- lm(Murder ~ UrbanPop, data = USArrests)
+abline(fitline)
+plot(USArrests$UrbanPop, USArrests$total, xlab = 'Urban Population \n', ylab = 'Total Arrest Rate' , sub = 'Correlation Coefficient = 0.2755569',main = "Total Arrest Rate vs. Urban Population")
+fitline<- lm(total ~ UrbanPop, data = USArrests)
+abline(fitline)
+```
+
+Summary of Plots
+The plots were used to look for a correlation between the Urban Population percentage per state and the number of arrests per state. The Correlation Coefficient is a number between -1 and 1, which shows how two variables are related. A value close to 1 or -1 indicates a close relationship between the two variables. A value close to 0 indicates a weak relationship. The largest correlation was between Urban Population and Rape, as seen in the graph. The correlation coefficient was not indicative of an extremely strong relationship, but visually we can see that as Urban Population percentage increased, so did the occurrence of Rape in each state. Additionally, there is a slight positive relationship between Urban Population and every other variable, including the Total Arrest Rate. Therefore, as a State’s urban population increases, so do the rates of arrest.
+
+Top 5 highest arrest rates of:
+Murders
+```{r}
+x<-arrange(filter(USArrests, USArrests$Murder >= 14.4), desc(Murder))
+x
+```
+
+Final Summary
+In the end, there was only a slight relationship between what percentage of a state was urban and their arrest rates. There is almost a close correlation between the urban population and total arrest rates of the states with the five highest total arrest rates. However, North Carolina was a big outlier in terms of population percentage. Although one may assume that higher urban population percentages would be associated with higher arrest rates, that is not necessarily the case.
+
+
+
+
+
+
+
